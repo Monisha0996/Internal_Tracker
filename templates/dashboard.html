@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Tasks</h3>
+
+  <!-- Filters (action stays on department dashboard when you're in Dept View) -->
+  <form class="d-flex align-items-center"
+        method="get"
+ 
+      action="{{ url_for('department_dashboard', dept_id=current_department.id) if (current_user.role=='admin' and (dept_mode or active_tab=='dept') and (selected_dept or (current_department and current_department.id))) else url_for('index') }}">
+
+
+    <!-- Status -->
+    <select name="status" class="form-select me-2" style="min-width: 160px;">
+      {% set s = (selected_status or 'ALL') %}
+      <option value="ALL" {{ 'selected' if s=='ALL' else '' }}>All</option>
+      <option value="OPEN" {{ 'selected' if s=='OPEN' else '' }}>Open</option>
+      <option value="IN_PROGRESS" {{ 'selected' if s=='IN_PROGRESS' else '' }}>In Progress</option>
+      <option value="COMPLETED" {{ 'selected' if s=='COMPLETED' else '' }}>Completed</option>
+      <option value="REJECTED" {{ 'selected' if s=='REJECTED' else '' }}>Rejected</option>
+    </select>
+
+    <!-- Department selector -->
+    {% if current_user.role == 'admin' and (active_tab == 'dept' or dept_mode) %}
+      <select name="dept" class="form-select me-2" style="min-width: 220px;">
+        {% set sd = selected_dept or (current_department.id if current_department else 0) %}
+        <option value="0" {{ 'selected' if sd==0 else '' }}>Select Department</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {{ 'selected' if sd==d.id else '' }}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <select name="dept" class="form-select me-2" style="min-width: 220px;">
+        {% set sd = selected_dept or 0 %}
+        <option value="0" {{ 'selected' if sd==0 else '' }}>All Departments</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {{ 'selected' if sd==d.id else '' }}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+
+    {% if current_user.role == 'admin' %}
+      <div class="form-check me-2">
+        <input class="form-check-input" type="checkbox" id="showHidden" name="show_hidden" value="1" {{ 'checked' if show_hidden else '' }}>
+        <label class="form-check-label" for="showHidden">Show hidden</label>
+      </div>
+    {% endif %}
+
+    <!-- Preserve current tab -->
+    <input type="hidden" name="tab" value="{{ active_tab or 'yours' }}">
+    <button class="btn btn-outline-primary">Filter</button>
+
+    {% if current_user.role == 'admin' %}
+      <a class="btn btn-outline-secondary ms-2"
+         href="{{ url_for('tasks_export_csv',
+                          status=(selected_status or 'ALL'),
+                          dept=(selected_dept or (current_department.id if current_department else 0)),
+                          include_hidden=(1 if show_hidden else 0)) }}">
+        Export CSV
+      </a>
+    {% endif %}
+  </form>
+</div>
+
+{% if current_user.role in ['admin','manager'] or current_user.can_create_task %}
+  <div class="mb-3">
+    <a class="btn btn-primary" href="{{ url_for('task_new') }}">New Task</a>
+  </div>
+{% endif %}
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if (active_tab or 'yours') == 'yours' %}active{% endif %}"
+       href="{{ url_for('index',
+                        status=selected_status or 'ALL',
+                        dept=selected_dept or 0,
+                        show_hidden=1 if show_hidden else 0,
+                        tab='yours') }}">
+      Your Tasks
+    </a>
+  </li>
+
+  {% if current_user.role in ['admin','manager'] or current_user.can_create_task %}
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab == 'assigned' %}active{% endif %}"
+       href="{{ url_for('index',
+                        status=selected_status or 'ALL',
+                        dept=selected_dept or 0,
+                        show_hidden=1 if show_hidden else 0,
+                        tab='assigned') }}">
+      Assigned Tasks
+    </a>
+  </li>
+  {% endif %}
+
+  
+</ul>
+
+{% macro task_table(rows, show_actions) -%}
+<table class="table table-hover align-middle">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Department</th>
+      <th>Assignee</th>
+      <th>Status</th>
+      <th>Due</th>
+      <th></th>
+      {% if show_actions %}<th>Actions</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in rows %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.title }}</td>
+      <td>{{ t.department.name }}</td>
+      <td>{{ t.assignee.name }}</td>
+      <td>
+        <span class="badge
+          {% if t.status=='COMPLETED' %}bg-success
+          {% elif t.status=='IN_PROGRESS' %}bg-warning text-dark
+          {% elif t.status=='REJECTED' %}bg-danger
+          {% else %}bg-secondary{% endif %}">
+          {{ t.status }}
+        </span>
+        {% if t.is_hidden %}
+          <span class="badge bg-dark ms-1">Hidden</span>
+        {% endif %}
+      </td>
+      <td>{{ t.due_date or '-' }}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('task_view', task_id=t.id) }}">View</a></td>
+
+      {% if show_actions %}
+        <td>
+          {% if t.is_hidden %}
+            <form method="post" action="{{ url_for('task_unhide', task_id=t.id) }}" style="display:inline;">
+              <button class="btn btn-sm btn-outline-success me-1">Unhide</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('task_hide', task_id=t.id) }}" style="display:inline;">
+              <button class="btn btn-sm btn-outline-warning me-1">Hide</button>
+            </form>
+          {% endif %}
+          <form method="post" action="{{ url_for('task_delete', task_id=t.id) }}"
+                onsubmit="return confirm('Delete this task permanently?');"
+                style="display:inline;">
+            <button class="btn btn-sm btn-outline-danger">Delete</button>
+          </form>
+        </td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+<!-- Content switching -->
+{% if current_user.role == 'admin' and (active_tab == 'dept' or dept_mode) %}
+  {% set sd = selected_dept or (current_department.id if current_department else 0) %}
+  {% if sd and dept_tasks %}
+    {{ task_table(dept_tasks, True) }}
+  {% elif sd %}
+    <div class="alert alert-info">No tasks found for this department (with current filters).</div>
+  {% else %}
+    <div class="alert alert-secondary">Choose a department to view its tasks.</div>
+  {% endif %}
+{% else %}
+  {% if (active_tab or 'yours') == 'yours' %}
+    {{ task_table(your_tasks, current_user.role == 'admin') }}
+  {% else %}
+    {{ task_table(assigned_tasks, current_user.role == 'admin') }}
+  {% endif %}
+{% endif %}
+
+
+
+
+{% endblock %}

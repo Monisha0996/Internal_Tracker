@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Departments</h3>
+
+<!-- Create Department -->
+<form class="row g-3 mb-4" method="post">
+  <div class="col-md-4">
+    <label class="form-label">Department Name</label>
+    <input name="name" class="form-control" placeholder="e.g., Compliance" required>
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Add Department</button>
+  </div>
+</form>
+
+<table class="table table-hover align-middle">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Name</th>
+      <th style="width:360px;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for d in departments %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>
+        <form method="post" action="{{ url_for('rename_department', dept_id=d.id) }}" class="d-flex gap-2">
+          <input name="name" value="{{ d.name }}" class="form-control form-control-sm" style="max-width:280px">
+          <button class="btn btn-sm btn-outline-primary">Rename</button>
+        </form>
+      </td>
+      <td>
+      <a class="btn btn-sm btn-outline-secondary me-1"
+        href="{{ url_for('department_dashboard', dept_id=d.id, status='ALL', show_hidden=0) }}">
+        View Department Dashboard
+      </a>
+        <form method="post" action="{{ url_for('delete_department', dept_id=d.id) }}"
+              onsubmit="return confirm('Delete this department? You must first remove or reassign all users and tasks.');"
+              style="display:inline;">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

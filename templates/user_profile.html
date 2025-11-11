@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-1">User Profile</h3>
+    <p class="text-muted mb-0">
+      <strong>Name:</strong> {{ profile_user.name }} &middot;
+      <strong>Email:</strong> {{ profile_user.email }} &middot;
+      <strong>Role:</strong> {{ profile_user.role|capitalize }} &middot;
+      <strong>Dept:</strong> {{ profile_user.department.name if profile_user.department else '-' }} &middot;
+      <strong>Status:</strong>
+      {% if profile_user.is_active_flag %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+    </p>
+  </div>
+  <div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('users') }}">Back to Users</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<form class="d-flex align-items-center mb-3" method="get" action="{{ url_for('user_profile', user_id=profile_user.id) }}">
+  <select name="dept" class="form-select me-2" style="min-width: 220px;">
+    {% set sd = selected_dept or 0 %}
+    <option value="0" {{ 'selected' if sd==0 else '' }}>All Departments</option>
+    {% for d in departments %}
+      <option value="{{ d.id }}" {{ 'selected' if sd==d.id else '' }}>{{ d.name }}</option>
+    {% endfor %}
+  </select>
+
+  <div class="form-check me-3">
+    <input class="form-check-input" type="checkbox" id="showHidden" name="show_hidden" value="1" {{ 'checked' if show_hidden else '' }}>
+    <label class="form-check-label" for="showHidden">Show hidden</label>
+  </div>
+
+  <input type="hidden" name="tab" value="{{ active_tab or 'yours' }}">
+  <button class="btn btn-outline-primary">Apply</button>
+</form>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if (active_tab or 'yours') == 'yours' %}active{% endif %}"
+       href="{{ url_for('user_profile', user_id=profile_user.id, dept=selected_dept or 0, show_hidden=1 if show_hidden else 0, tab='yours') }}">
+      Your Tasks (assigned to {{ profile_user.name }})
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab == 'assigned' %}active{% endif %}"
+       href="{{ url_for('user_profile', user_id=profile_user.id, dept=selected_dept or 0, show_hidden=1 if show_hidden else 0, tab='assigned') }}">
+      Assigned Tasks (assigned by {{ profile_user.name }})
+    </a>
+  </li>
+</ul>
+
+<!-- Export buttons -->
+<div class="mb-2">
+  <a class="btn btn-sm btn-outline-secondary me-1"
+     href="{{ url_for('user_tasks_export_csv', user_id=profile_user.id, type='yours', dept=selected_dept or 0, include_hidden=1 if show_hidden else 0) }}">
+    Export “Your Tasks” CSV
+  </a>
+  <a class="btn btn-sm btn-outline-secondary"
+     href="{{ url_for('user_tasks_export_csv', user_id=profile_user.id, type='assigned', dept=selected_dept or 0, include_hidden=1 if show_hidden else 0) }}">
+    Export “Assigned Tasks” CSV
+  </a>
+</div>
+
+{% macro task_table(rows) -%}
+<table class="table table-hover align-middle">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Department</th>
+      <th>Assignee</th>
+      <th>Status</th>
+      <th>Due</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in rows %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.title }}</td>
+      <td>{{ t.department.name }}</td>
+      <td>{{ t.assignee.name }}</td>
+      <td>
+        <span class="badge
+          {% if t.status=='COMPLETED' %}bg-success
+          {% elif t.status=='IN_PROGRESS' %}bg-warning text-dark
+          {% elif t.status=='REJECTED' %}bg-danger
+          {% else %}bg-secondary{% endif %}">
+          {{ t.status }}
+        </span>
+        {% if t.is_hidden %}
+          <span class="badge bg-dark ms-1">Hidden</span>
+        {% endif %}
+      </td>
+      <td>{{ t.due_date or '-' }}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('task_view', task_id=t.id) }}">View</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% if (active_tab or 'yours') == 'yours' %}
+  {{ task_table(your_tasks) }}
+{% else %}
+  {{ task_table(assigned_tasks) }}
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>New Task</h3>
+<form class="row g-3" method="post">
+  <div class="col-md-6">
+    <label class="form-label">Title</label>
+    <input name="title" class="form-control" required>
+  </div>
+  <div class="col-md-12">
+    <label class="form-label">Description</label>
+    <textarea name="description" class="form-control" rows="4"></textarea>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Department</label>
+    <select name="department_id" class="form-select" required>
+      {% for d in departments %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Assign to</label>
+    <select name="assignee_id" class="form-select" required>
+      {% for u in users %}
+        <option value="{{ u.id }}">{{ u.name }} ({{ u.department.name if u.department }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Due Date</label>
+    <input type="date" name="due_date" class="form-control">
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Create Task</button>
+  </div>
+</form>
+{% endblock %}

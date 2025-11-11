@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Users</h3>
+
+<!-- Create User -->
+<form class="row g-3 mb-4" method="post">
+  <div class="col-md-3">
+    <label class="form-label">Name</label>
+    <input name="name" class="form-control" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Email</label>
+    <input name="email" type="email" class="form-control" required>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Role</label>
+    <select name="role" class="form-select">
+      <option value="user">User</option>
+      <option value="manager">Manager</option>
+      <option value="admin">Admin</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Department</label>
+    <select name="department_id" class="form-select" required>
+      {% for d in departments %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Temp Password</label>
+    <input name="password" type="text" value="ChangeMe123!" class="form-control" required>
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Create User</button>
+  </div>
+</form>
+
+<!-- Users Table -->
+<table class="table table-hover align-middle">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th style="min-width:180px;">Name</th>
+      <th>Email</th>
+      <th style="min-width:180px;">Role</th>
+      <th>Dept</th>
+      <th>Create Tasks</th>
+      <th>Status</th>
+      <th style="width:460px;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ u.name }}</td>
+      <td>{{ u.email }}</td>
+
+      <!-- Inline role editor -->
+      <td>
+        <form method="post" action="{{ url_for('change_user_role', user_id=u.id) }}" class="d-flex gap-1 align-items-center">
+          <select name="role" class="form-select form-select-sm" style="min-width:120px; font-size:.8rem;">
+            <option value="user" {{ 'selected' if u.role=='user' else '' }}>User</option>
+            <option value="manager" {{ 'selected' if u.role=='manager' else '' }}>Manager</option>
+            <option value="admin" {{ 'selected' if u.role=='admin' else '' }}>Admin</option>
+          </select>
+          <button class="btn btn-sm btn-outline-primary px-2 py-0" style="font-size:.75rem;">Save</button>
+        </form>
+      </td>
+
+      <td>{{ u.department.name if u.department }}</td>
+
+      <td>
+        <form method="post" action="{{ url_for('toggle_user_create', user_id=u.id) }}" style="display:inline;">
+          {% if u.can_create_task %}
+            <button class="btn btn-sm btn-outline-success">Granted</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-secondary">Grant</button>
+          {% endif %}
+        </form>
+      </td>
+
+      <td>
+        {% if u.is_active_flag %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+      </td>
+
+      <td class="action-buttons">
+        <!-- View Profile -->
+        <a class="btn btn-sm btn-outline-secondary me-1"
+           href="{{ url_for('user_profile', user_id=u.id) }}">
+          View Profile
+        </a>
+
+        <!-- Change Password (opens modal) -->
+        <button class="btn btn-sm btn-outline-primary me-1"
+                data-bs-toggle="modal"
+                data-bs-target="#pwModal-{{ u.id }}">
+          Change Password
+        </button>
+
+        {% if u.is_active_flag %}
+          <form method="post" action="{{ url_for('deactivate_user', user_id=u.id) }}"
+                onsubmit="return confirm('Deactivate this user?');"
+                style="display:inline;">
+            <button class="btn btn-sm btn-outline-warning me-1">Deactivate</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('reactivate_user', user_id=u.id) }}" style="display:inline;">
+            <button class="btn btn-sm btn-outline-success me-1">Reactivate</button>
+          </form>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('delete_user', user_id=u.id) }}"
+              onsubmit="return confirm('Delete this user permanently? This cannot be undone.');"
+              style="display:inline;">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+
+    <!-- Change Password Modal for this user -->
+    <div class="modal fade" id="pwModal-{{ u.id }}" tabindex="-1" aria-labelledby="pwLabel-{{ u.id }}" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" method="post" action="{{ url_for('admin_change_user_password', user_id=u.id) }}">
+          <div class="modal-header">
+            <h5 class="modal-title" id="pwLabel-{{ u.id }}">Change Password – {{ u.name }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">New Password</label>
+              <input type="password" name="new_password" class="form-control" minlength="8" required>
+              <small class="text-muted">At least 8 characters. Use a strong password.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Confirm Password</label>
+              <input type="password" name="confirm_password" class="form-control" minlength="8" required>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

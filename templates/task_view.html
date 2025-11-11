@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="mb-3">Task Details</h3>
+
+<!-- Task info as a table -->
+<table class="table table-bordered table-sm mb-4">
+  <tbody>
+    <tr>
+      <th style="width: 180px;">Task ID</th>
+      <td>{{ task.id }}</td>
+    </tr>
+    <tr>
+      <th>Title</th>
+      <td>{{ task.title }}</td>
+    </tr>
+    <tr>
+      <th>Status</th>
+      <td>
+        <span class="badge
+          {% if task.status=='COMPLETED' %}bg-success
+          {% elif task.status=='IN_PROGRESS' %}bg-warning text-dark
+          {% elif task.status=='REJECTED' %}bg-danger
+          {% else %}bg-secondary{% endif %}">
+          {{ task.status }}
+        </span>
+        {% if task.is_hidden %}
+          <span class="badge bg-dark ms-1">Hidden</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th>Department</th>
+      <td>{{ task.department.name }}</td>
+    </tr>
+    <tr>
+      <th>Assignee</th>
+      <td>{{ task.assignee.name }}</td>
+    </tr>
+    <tr>
+      <th>Assigned By</th>
+      <td>{{ task.assigner.name }}</td>
+    </tr>
+    <tr>
+      <th>Due Date</th>
+      <td>{{ task.due_date or '-' }}</td>
+    </tr>
+    <tr>
+      <th>Created At</th>
+      <td>{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    <tr>
+      <th>Description</th>
+      <td>{{ task.description or '-' }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Admin actions -->
+{% if current_user.role == 'admin' %}
+<div class="mb-3">
+  {% if task.is_hidden %}
+    <form method="post" action="{{ url_for('task_unhide', task_id=task.id) }}" style="display:inline;">
+      <button class="btn btn-sm btn-outline-success me-1">Unhide</button>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('task_hide', task_id=task.id) }}" style="display:inline;">
+      <button class="btn btn-sm btn-outline-warning me-1">Hide</button>
+    </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('task_delete', task_id=task.id) }}"
+        onsubmit="return confirm('Delete this task permanently? This cannot be undone.');"
+        style="display:inline;">
+    <button class="btn btn-sm btn-outline-danger">Delete</button>
+  </form>
+</div>
+{% endif %}
+
+<hr>
+
+<!-- Updates as a table -->
+<h5 class="mb-3">Updates</h5>
+
+{% if task.updates %}
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th style="width: 180px;">Date</th>
+      <th style="width: 180px;">User</th>
+      <th style="width: 120px;">Type</th>
+      <th>Comment</th>
+      <th style="width: 140px;">Attachment</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for up in task.updates %}
+    <tr>
+      <td>{{ up.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ up.user.name }}</td>
+      <td><span class="badge bg-info">{{ up.status }}</span></td>
+      <td>{{ up.comment or '-' }}</td>
+      <td>
+        {% if up.attachment_path %}
+          <a class="btn btn-sm btn-outline-primary"
+             href="{{ url_for('uploaded_file', filename=up.attachment_path) }}">
+            Download
+          </a>
+        {% else %}
+          -
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="text-muted">No updates yet.</p>
+{% endif %}
+
+<!-- Add Update / Proof (only admin or assignee) -->
+{% if current_user.role == 'admin' or current_user.id == task.assignee_id %}
+<hr>
+<h5 class="mb-3">Add Update / Proof</h5>
+
+<form method="post"
+      action="{{ url_for('task_update', task_id=task.id) }}"
+      enctype="multipart/form-data"
+      class="row g-3">
+
+  <div class="col-md-3">
+    <label class="form-label">Status</label>
+    <select class="form-select" name="status">
+      <option value="COMMENT">Comment</option>
+      <option value="PROOF">Proof (in progress)</option>
+      <option value="COMPLETED">Mark Completed</option>
+      {% if current_user.role == 'admin' %}
+        <option value="REJECTED">Reject</option>
+      {% endif %}
+    </select>
+  </div>
+
+  <div class="col-md-9">
+    <label class="form-label">Comment</label>
+    <input class="form-control" name="comment" placeholder="Notes about the update">
+  </div>
+
+  <div class="col-md-12">
+    <label class="form-label">Attachment (optional)</label>
+    <input type="file" name="attachment" class="form-control">
+    <small class="text-muted">Allowed: png, jpg, jpeg, pdf, doc, docx, xlsx, ppt, pptx, txt, csv, zip</small>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary">Submit Update</button>
+  </div>
+</form>
+{% endif %}
+
+{% endblock %}
